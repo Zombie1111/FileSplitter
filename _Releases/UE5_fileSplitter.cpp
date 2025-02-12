@@ -5,9 +5,11 @@
 
 IMPLEMENT_MODULE(FUE5FileSplitterModule, UE5FileSplitter)
 
+const FString splitBasePath = "";//Should be relative to project root directory
+
 void FUE5FileSplitterModule::StartupModule()
 {
-    FString Msg = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir() + "_MergeFiles.exe");
+    FString Msg = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir() + splitBasePath + "xMergeFiles.exe");
     UE_LOG(LogTemp, Warning, TEXT("Merging splitted files: %s"), *Msg);
 
     FProcHandle Handle = FPlatformProcess::CreateProc(*Msg, nullptr, true, false, false, nullptr, 0, nullptr, nullptr);
@@ -23,9 +25,9 @@ void FUE5FileSplitterModule::StartupModule()
     }
 }
 
-void FUE5FileSplitterModule::ShutdownModule()//Does it run if shift+f5 in vs? Not sure....
+void FUE5FileSplitterModule::ShutdownModule()
 {
-    FString Msg = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir() + "_SplitFiles.exe");
+    FString Msg = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir() + splitBasePath + "xSplitFiles.exe");
     UE_LOG(LogTemp, Warning, TEXT("Running file splitter: %s"), *Msg);
 
     FProcHandle Handle = FPlatformProcess::CreateProc(*Msg, nullptr, true, false, false, nullptr, 0, nullptr, nullptr);
