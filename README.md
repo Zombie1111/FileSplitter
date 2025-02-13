@@ -20,9 +20,11 @@ I primary made this because some of the files in my projects exceeded 100mb and 
 
 Download and copy `_Releases/xMergeFiles.exe` and `_Releases/xSplitFiles.exe` into the root folder of your project (Usually where your .gitingore file is located).
 
-You usually wanna run `_MergeFiles.exe` before opening your project and `_SplitFiles.exe` after closing your project.
+Run the respective .exe to split/merge files. You usually wanna run `_MergeFiles.exe` before opening your project and `_SplitFiles.exe` after closing your project.
 
-The `_Releases` folder contains example scripts to automate the splitting and merging process in Unity and UE5.
+Make sure the files `xSplittedFilesData_8hlk.zombSplitData~`, `xSplittedFiles_TEMPONLY_hf4n~`, `xMergeFiles.exe` and `xSplitFiles.exe` wont be excluded by your .gitignore.
+
+The `_Releases` folder contains example scripts to automate the splitting and merging process in Unity and UE5, read below for more info.
 
 **Unity**
 
@@ -31,6 +33,8 @@ Follow `General` instruction and then place `Releases/Unity_fileSplitter.cs` any
 **UE5**
 
 Follow `General` instruction and then import `_Releases/UE5_fileSplitter.h` and `_Releases/UE5_fileSplitter.cpp` into your project using your IDE.
+
+The .gitignore file for unreal excludes .exe files be defualt, fix this by adding `!xMergeFiles.exe` and `!xSplitFiles.exe` at the bottom.
 
 **Building Source**
 
