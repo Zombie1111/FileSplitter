@@ -7,15 +7,20 @@ using static System.Numerics.BitOperations;
 using System.Text;
 
 //FileSplitter.SplitFiles();
-FileSplitter.MergeFiles();
+FileSplitter.MergeFiles();//Uncomment either SplitFiles or MergeFiles and build
 
+#pragma warning disable IDE0130 // Namespace does not match folder structure
 namespace zombSplit
+#pragma warning restore IDE0130 // Namespace does not match folder structure
 {
     public class FileSplitter
     {
         #region Config
         private static class SplitConfig
         {
+            public const bool alwaysMergeBeforeSplit = false;//If true, DoMergeFiles() will be called in SplitFiles() before splitting,
+                                                             //always the case if deleteSplittedFiles is true
+
             public const bool deleteSplittedFiles = false;//If true, after a file has been splitted the orginal file will be deleted
 
             public const bool dontModifyGitIgnore = false;//If true, splitted files paths wont be added to the .gitignore file
@@ -25,14 +30,12 @@ namespace zombSplit
             public const bool NoErrorPausing = false;//Same as above but for errors
 
             //Files that are in or in any sub folder of a folder that has any of these names will never be splitted
-            public static readonly string[] dictorariesToExclude = new string[] { ".vs", "Build", ".git", "Library", "Temp" };
+            public static readonly string[] dictorariesToExclude = [".vs", "Build", ".git", "Library", "Temp", "xSplittedFiles_TEMPONLY_hf4n~"];
 
             //Files with these extensions will never be splitted
-            public static readonly HashSet<string> fileExtensionsToExclude = new() { ".meta", ".VC.db", ".VC.opendb" };
+            public static readonly HashSet<string> fileExtensionsToExclude = [".meta", ".VC.db", ".VC.opendb"];
                                                                                                                        
             public const int splitFilesLargerThanMB = 99;//If a file is larger that this it gets splitted into files that are smaller than this
-
-            public static readonly HashSet<string> requiredGitIgnoreFolderName = new() { };//The .gitIgnore file to use must be in a folder with any of these names
 
             public const int maxThreadCount = 4;
             public const int maxAttempts = 16;
@@ -40,12 +43,12 @@ namespace zombSplit
         }
         #endregion Config
 
-        private List<SplitFile> splittedFiles = new();
+        private List<SplitFile> splittedFiles = [];
 
         [Serializable]
         public class SplitFile
         {
-            public List<string> splitFileNames = new();
+            public List<string> splitFileNames = [];
             /// <summary>
             /// Relative to project base dir
             /// </summary>
@@ -60,8 +63,8 @@ namespace zombSplit
                 {
                     try
                     {
-                        FileStream steam = File.Open(filePath, FileMode.Create);
-                        using BinaryWriter writer = new BinaryWriter(steam);
+                        using FileStream steam = File.Open(filePath, FileMode.Create);
+                        using BinaryWriter writer = new(steam);
 
                         writer.Write(splitFiles.Count);
                         foreach (var splitFile in splitFiles)
@@ -76,7 +79,6 @@ namespace zombSplit
                             writer.Write(splitFile.sourceByteSize);
                         }
 
-                        writer.Close();//Also closes stream
                         break;
                     }
                     catch
@@ -95,7 +97,7 @@ namespace zombSplit
             public static List<SplitFile> ReadFromFile(string filePath)
             {
                 int attempts = SplitConfig.maxAttempts;
-                List<SplitFile> splitFiles = new();
+                List<SplitFile> splitFiles = [];
                 bool probNoFile = false;
 
                 while (attempts > 0)
@@ -118,7 +120,7 @@ namespace zombSplit
                         }
 
                         probNoFile = false;
-                        FileStream steam = File.Open(filePath, FileMode.Open);
+                        using FileStream steam = File.Open(filePath, FileMode.Open);
                         using BinaryReader reader = new(steam);
                         int count = reader.ReadInt32();
 
@@ -138,7 +140,6 @@ namespace zombSplit
                             splitFiles.Add(splitFile);
                         }
 
-                        reader.Close();
                         break;
                     }
                     catch
@@ -168,17 +169,25 @@ namespace zombSplit
         /// <summary>
         /// Restores the .gitignore and returns splitFolderPath
         /// </summary>
-        private string RestoreGitIgnore()
+        private static string RestoreGitIgnore()
         {
             //Restore .gitIgnore
             string ignoreFullPath = TryGetGitIgnoreFullPath(out string splitFolderPath);
             if (ignoreFullPath == null) return splitFolderPath;
 
             string ogIgnoreFullPath = GetFullOgGitIgnorePath(ignoreFullPath);
-            if (File.Exists(ogIgnoreFullPath) == true)
+
+            try
             {
-                File.WriteAllBytes(ignoreFullPath, File.ReadAllBytes(ogIgnoreFullPath));
-                File.Delete(ogIgnoreFullPath);
+                if (File.Exists(ogIgnoreFullPath) == true)
+                {
+                    File.WriteAllBytes(ignoreFullPath, File.ReadAllBytes(ogIgnoreFullPath));
+                    File.Delete(ogIgnoreFullPath);
+                }
+            }
+            catch
+            {
+                Debug.LogError("Error restoring orginal .gitignore: " + ignoreFullPath + " ogIg: " + ogIgnoreFullPath);
             }
 
             return splitFolderPath;
@@ -274,25 +283,54 @@ namespace zombSplit
         /// </summary>
         public static void SplitFiles()
         {
-            if (SplitConfig.deleteSplittedFiles == true) MergeFiles();//Running DoSplitFiles twice in a row without running MergeFiles inbetween will
-                                                                      //permanently delete splitted files, this to prevent that!! (Only if deleteSplittedFiles)
+#pragma warning disable CS0162 // Unreachable code detected
+            if (SplitConfig.deleteSplittedFiles == true || SplitConfig.alwaysMergeBeforeSplit == true)
+                MergeFiles();//Running DoSplitFiles twice in a row without running MergeFiles inbetween will
+                             //permanently delete splitted files, this to prevent that!! (Only if deleteSplittedFiles)
+#pragma warning restore CS0162 // Unreachable code detected
 
             GetSplitSaveFile().DoSplitFiles();
         }
 
         private void DeleteSplittedFiles(string splitFolderPath)
         {
-            //Delete old split files
-            Directory.CreateDirectory(@splitFolderPath);
-            DirectoryInfo dic = new(splitFolderPath);
+            int attempts = SplitConfig.maxAttempts;
+            Task? task = null;
 
-            foreach (FileInfo file in dic.GetFiles())
+            while (attempts > 0)
             {
-                file.Delete();
+                try
+                {
+                    //Delete old split files
+                    task = Task.Run(() =>
+                    {
+                        splittedFiles.Clear();
+                        SaveChanges();
+                    });
+
+                    Directory.CreateDirectory(@splitFolderPath);
+                    DirectoryInfo dic = new(splitFolderPath);
+
+                    foreach (FileInfo file in dic.GetFiles())
+                    {
+                        file.Delete();
+                    }
+
+                    task.Wait();
+                    break;
+                }
+                catch
+                {
+                    attempts--;
+                    task?.Wait();
+                    Thread.Sleep(SplitConfig.newAttemptDelayMS);
+                }
             }
 
-            splittedFiles.Clear();
-            SaveChanges();
+            if (attempts == 0)
+            {
+                Debug.LogError("Unable to delete old splitted files: " + splitFolderPath);
+            }
         }
 
         private static string projPath = string.Empty;
@@ -375,29 +413,44 @@ namespace zombSplit
 
         private void DoSplitFiles()
         {
-            //Restore .gitIgnore
-            RestoreGitIgnore();
+            string fullIgnorePath = string.Empty;
+            string splitFolderPath = string.Empty;
 
-            //Backup the .gitignore file
-            string fullIgnorePath = TryGetGitIgnoreFullPath(out string splitFolderPath);
-            if (fullIgnorePath != null)
-                File.WriteAllBytes(GetFullOgGitIgnorePath(fullIgnorePath), File.ReadAllBytes(fullIgnorePath));
+            Task task = Task.Run(() =>
+            {
+                //Restore .gitIgnore
+                RestoreGitIgnore();
 
-            //Delete previous temp split files
-            DeleteSplittedFiles(splitFolderPath);
+                //Backup the .gitignore file
+                fullIgnorePath = TryGetGitIgnoreFullPath(out splitFolderPath);
+
+                if (fullIgnorePath != null)
+                {
+                    try
+                    {
+                        File.WriteAllBytes(GetFullOgGitIgnorePath(fullIgnorePath), File.ReadAllBytes(fullIgnorePath));
+                    }
+                    catch
+                    {
+                        Debug.LogError("Error creating .gitignore copy: " + fullIgnorePath);
+                    }
+                }
+
+                //Delete previous temp split files
+                DeleteSplittedFiles(splitFolderPath);
+            });
 
             //Split files
             long minSizeInBytes = SplitConfig.splitFilesLargerThanMB * 1000000;
             string appPath = GetProjectBasePath();
-            List<string> gitIgnorePaths = new();
+            List<string> gitIgnorePaths = [];
 
             var fPaths = GetPathToAllFiles(out gitIgnorePaths);
             int count = fPaths.Count;
             object lockObj = new();
 
-            //foreach (string filePath in )
-            //for (int i = 0; i < count; i++)
             ParallelOptions options = new() { MaxDegreeOfParallelism = SplitConfig.maxThreadCount };
+            task.Wait();
 
             Parallel.ForEach(fPaths, options, filePath =>
             {
@@ -409,15 +462,18 @@ namespace zombSplit
                 DoSplitFile(filePath);
             });
 
-            SaveChanges();
+            task = Task.Run(() => SaveChanges());
 
             //Did we split anything?
             if (splittedFiles.Count == 0)
             {
                 RestoreGitIgnore();
                 Debug.Log("Got no files to split");
+                task.Wait();
                 return;
             }
+
+            Debug.Log("Splitted " + splittedFiles.Count + " files");
 
             //Add splitted files to .gitignore
             if (fullIgnorePath != null)
@@ -425,19 +481,24 @@ namespace zombSplit
                 gitIgnorePaths.Insert(0, "# Auto generated by FileSplitter. NOTE, changes made to this .gitignore will be overwritten when you merge or split files");
 
                 string textToAppend = Environment.NewLine + string.Join(Environment.NewLine, gitIgnorePaths);
-                File.AppendAllText(fullIgnorePath, textToAppend);
+
+                try
+                {
+                    File.AppendAllText(fullIgnorePath, textToAppend);
+                }
+                catch
+                {
+                    Debug.LogError("Error updating .gitignore: " + fullIgnorePath);
+                }
             }
 
-            //Log result
-            Debug.Log("Splitted " + splittedFiles.Count + " files");
+            task.Wait();
 
             void DoSplitFile(string filePath)
             {
                 int maxAttempts = SplitConfig.maxAttempts;
                 List<string> splitFullPaths = new(2);
-#pragma warning disable CS8602 // Dereference of a possibly null reference.
                 string relPath = Path.GetRelativePath(appPath, filePath);
-#pragma warning restore CS8602 // Dereference of a possibly null reference.
                 long sourceByteSize = 0;
 
                 while (maxAttempts > 0)
@@ -455,7 +516,7 @@ namespace zombSplit
                         string splitFileNameBase = Path.GetFileName(filePath) + "__";
                         int splitNumber = 0;
 
-                        using (FileStream fs = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+                        using (FileStream fs = new(filePath, FileMode.Open, FileAccess.Read, FileShare.Read))
                         {
                             byte[] buffer = new byte[minSizeInBytes];
                             int bytesRead;
@@ -517,46 +578,76 @@ namespace zombSplit
 
         private static List<string> GetPathToAllFiles(out List<string> gitIgnoreFilePaths)
         {
-            gitIgnoreFilePaths = new(64);
-            List<string> filePaths = new(64);
+            gitIgnoreFilePaths = new(16);
+            var gitPaths = gitIgnoreFilePaths;
+            List<string> filePaths = new(16);
             long minSizeInBytes = SplitConfig.splitFilesLargerThanMB * 1000000;
-
+            object lockObj = new();
             string searchFolderPath = GetProjectBasePath();
-            //searchFolderPath = searchFolderPath.Replace("\\", "/");
 
-            foreach (string filePath in Directory.GetFiles(searchFolderPath, "*.*", SearchOption.AllDirectories))
+            try
             {
-                //Ignore file extensions
-                if (SplitConfig.fileExtensionsToExclude.Contains(Path.GetExtension(filePath)) == true) continue;
-
-                //Ignore dictoraries
-                bool ignore = false;
-
-                foreach (string dic in SplitConfig.dictorariesToExclude)
-                {
-                    if (filePath.Contains(dic) == true)
-                    {
-                        ignore = true;
-                        break;
-                    }
-                }
-
-                if (ignore == true) continue;
-
-                //Ignore too small files
-                string fullPath = Path.GetFullPath(filePath, searchFolderPath);
-                var fData = new FileInfo(fullPath);
-
-                if (fData.Length < minSizeInBytes) continue;
-                if (fData.Exists == false) continue;
-
-                //Add path to list
-                string theFilePath = filePath.Replace("\\", "/");
-                gitIgnoreFilePaths.Add(theFilePath.Replace(searchFolderPath + "/", string.Empty));
-                filePaths.Add(theFilePath);
+                GetFilesRecursive(searchFolderPath);
+            }
+            catch
+            {
+                //This has never failed so doing attempts is not needed
+                gitIgnoreFilePaths.Clear();
+                filePaths.Clear();
+                Debug.LogError("Error getting files to split in: " + searchFolderPath);
             }
 
             return filePaths;
+
+            void GetFilesRecursive(string sDir)
+            {
+                List<Task> tasks = new(4);
+
+                foreach (string dicPath in Directory.GetDirectories(sDir))
+                {
+                   //Ignore dictoraries
+                   bool ignore = false;
+
+                   foreach (string dic in SplitConfig.dictorariesToExclude)
+                   {
+                       if (dicPath.Contains(dic) == true)
+                       {
+                           ignore = true;
+                           break;
+                       }
+                   }
+
+                   if (ignore == true) continue;
+
+                   tasks.Add(Task.Run(() => GetFilesRecursive(dicPath)));
+                }
+
+                foreach (string filePath in Directory.GetFiles(sDir))
+                {
+                   //Ignore file extensions
+                   if (SplitConfig.fileExtensionsToExclude.Contains(Path.GetExtension(filePath)) == true) continue;
+                                       
+                   //Ignore too small files
+                   string fullPath = Path.GetFullPath(filePath, searchFolderPath);
+                   var fData = new FileInfo(fullPath);
+                   
+                   if (fData.Length < minSizeInBytes) continue;
+                   if (fData.Exists == false) continue;
+                   
+                   //Add path to list
+                   string theFilePath = filePath.Replace("\\", "/");
+                   lock (lockObj)
+                   {
+                       gitPaths.Add(theFilePath.Replace(searchFolderPath + "/", string.Empty));
+                       filePaths.Add(theFilePath);
+                   }
+                }
+
+                foreach (Task task in tasks)
+                {
+                    task.Wait();
+                }
+            }
         }
 
         /// <summary>
