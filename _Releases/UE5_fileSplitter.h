@@ -1,3 +1,5 @@
+﻿//By David Westberg, github.com/Zombie1111/FileSplitter
+#if WITH_EDITOR
 #pragma once
 
 #include "CoreMinimal.h"
@@ -18,3 +20,4 @@ public:
 private:
 
 };
+#endif

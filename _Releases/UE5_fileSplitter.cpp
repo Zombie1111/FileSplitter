@@ -1,3 +1,5 @@
+﻿//By David Westberg, github.com/Zombie1111/FileSplitter
+#if WITH_EDITOR
 #include "UE5_fileSplitter.h"
 #include "Modules/ModuleManager.h"
 #include "Editor.h"
@@ -41,3 +43,4 @@ void FUE5FileSplitterModule::ShutdownModule()
         UE_LOG(LogTemp, Error, TEXT("Splitting failed: %s"), *Msg);
     }
 }
+#endif

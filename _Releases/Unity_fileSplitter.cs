@@ -1,3 +1,4 @@
+//Made by David Westberg, https://github.com/Zombie1111/FileSplitter
 #if UNITY_EDITOR
 using UnityEditor;
 using UnityEngine;
