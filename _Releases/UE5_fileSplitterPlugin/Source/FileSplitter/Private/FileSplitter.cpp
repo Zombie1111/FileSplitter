@@ -1,21 +1,18 @@
-﻿//By David Westberg, github.com/Zombie1111/FileSplitter
+// Copyright Epic Games, Inc. All Rights Reserved.
 #if WITH_EDITOR
-#include "UE5_fileSplitter.h"
-#include "Modules/ModuleManager.h"
-#include "Editor.h"
-#include "CoreMinimal.h"
+#include "FileSplitter.h"
 
-IMPLEMENT_MODULE(FUE5FileSplitterModule, UE5FileSplitter)
+#define LOCTEXT_NAMESPACE "FFileSplitterModule"
 
 const FString splitBasePath = "";//Should be relative to project root directory
 
-void FUE5FileSplitterModule::StartupModule()
+void FFileSplitterModule::StartupModule()
 {
     FString Msg = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir() + splitBasePath + "xMergeFiles.exe");
     UE_LOG(LogTemp, Warning, TEXT("Merging splitted files: %s"), *Msg);
 
     FProcHandle Handle = FPlatformProcess::CreateProc(*Msg, nullptr, true, false, false, nullptr, 0, nullptr, nullptr);
-
+    
     if (Handle.IsValid())
     {
         FPlatformProcess::WaitForProc(Handle);
@@ -27,7 +24,7 @@ void FUE5FileSplitterModule::StartupModule()
     }
 }
 
-void FUE5FileSplitterModule::ShutdownModule()
+void FFileSplitterModule::ShutdownModule()
 {
     FString Msg = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir() + splitBasePath + "xSplitFiles.exe");
     UE_LOG(LogTemp, Warning, TEXT("Running file splitter: %s"), *Msg);
@@ -43,4 +40,8 @@ void FUE5FileSplitterModule::ShutdownModule()
         UE_LOG(LogTemp, Error, TEXT("Splitting failed: %s"), *Msg);
     }
 }
+
+#undef LOCTEXT_NAMESPACE
+	
+IMPLEMENT_MODULE(FFileSplitterModule, FileSplitter)
 #endif

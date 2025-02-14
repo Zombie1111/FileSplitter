@@ -1,0 +1,23 @@
+{
+	"FileVersion": 3,
+	"Version": 1,
+	"VersionName": "1.0",
+	"FriendlyName": "FileSplitter",
+	"Description": "Splits and merges files > 100mb",
+	"Category": "Other",
+	"CreatedBy": "David Westberg",
+	"CreatedByURL": "",
+	"DocsURL": "",
+	"MarketplaceURL": "",
+	"SupportURL": "",
+	"EngineVersion": "5.5.0",
+	"CanContainContent": false,
+	"Installed": false,
+	"Modules": [
+		{
+			"Name": "FileSplitter",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	]
+}
