@@ -26,15 +26,20 @@ Make sure the files `xSplittedFilesData_8hlk.zombSplitData~`, `xSplittedFiles_TE
 
 The `_Releases` folder contains example scripts to automate the splitting and merging process in Unity and UE5, read below for more info.
 
+
 **Unity**
 
-Follow `General` instruction and then place `Releases/Unity_fileSplitter.cs` anywhere inside your `Assets` folder.
+Follow `General` instruction and then place `_Releases/Unity_fileSplitter.cs` anywhere inside your `Assets` folder. Done!
+
 
 **UE5**
 
-Follow `General` instruction and then import `_Releases/UE5_fileSplitter.h` and `_Releases/UE5_fileSplitter.cpp` into your project using your IDE.
+Follow `General` instruction and then place `_Releases/UE5_fileSplitterPlugin` folder inside your projects `Plugins` folder.
+
+Search for `FileSplitter` in `Edit->Plugins` window and make sure its enabled. Restart UE5 and file splitter should run automatically.
 
 The .gitignore file for unreal excludes .exe files be defualt, fix this by adding `!xMergeFiles.exe` and `!xSplitFiles.exe` at the bottom.
+
 
 **Building Source**
 
