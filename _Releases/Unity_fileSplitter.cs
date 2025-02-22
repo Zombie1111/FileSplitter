@@ -10,8 +10,21 @@ namespace zombFiles
     {
         private const string splitBasePath = "";//Should be relative to project root directory (Not assets folder)
         private static bool isClosing = false;
+        private static bool canRefresh = true;
 
-        static void OnPostprocessAllAssets(string[] importedAssets, string[] deletedAssets, string[] movedAssets, string[] movedFromAssetPaths, bool didDomainReload)
+        void OnPreprocessAsset()
+        {
+            canRefresh = false;
+            RefreshSplitter();
+            canRefresh = true;
+        }
+
+        private static void OnPostprocessAllAssets(string[] importedAssets, string[] deletedAssets, string[] movedAssets, string[] movedFromAssetPaths, bool didDomainReload)
+        {
+            RefreshSplitter();
+        }
+
+        private static void RefreshSplitter()
         {
             if (isClosing == true) return;
 
@@ -25,7 +38,7 @@ namespace zombFiles
         }
 
         [MenuItem("Tools/File Splitting/Merge Files")]
-        public static void OnEditorStart()
+        private static void OnEditorStart()
         {
             string path = Application.dataPath + splitBasePath + "xMergeFiles.exe";
             path = path.Replace("Assets", string.Empty);
@@ -33,18 +46,19 @@ namespace zombFiles
             Process proc = Process.Start(path);
             proc.WaitForExit();
 
+            if (canRefresh == false) return;
             AssetDatabase.Refresh();//If merged anything make sure the merged files gets imported
         }
 
         [MenuItem("Tools/File Splitting/Split Files")]
-        public static void SplitFiles()
+        private static void SplitFiles()
         {
             OnEditorClose();
             isClosing = false;
             AssetDatabase.Refresh();//If splitted anything and delete splitted is true, make sure the deleted files disepear
         }
 
-        public static void OnEditorClose()
+        private static void OnEditorClose()
         {
             isClosing = true;
             string path = Application.dataPath + splitBasePath + "xSplitFiles.exe";

@@ -6,8 +6,8 @@ using System.Runtime.InteropServices;
 using static System.Numerics.BitOperations;
 using System.Text;
 
-FileSplitter.SplitFiles();
-//FileSplitter.MergeFiles();//Uncomment either SplitFiles or MergeFiles and build
+//FileSplitter.SplitFiles();
+FileSplitter.MergeFiles();//Uncomment either SplitFiles or MergeFiles and build
 
 #pragma warning disable IDE0130 // Namespace does not match folder structure
 namespace zombSplit
@@ -22,6 +22,9 @@ namespace zombSplit
                                                              //always the case if deleteSplittedFiles is true
 
             public const bool deleteSplittedFiles = false;//If true, after a file has been splitted the orginal file will be deleted
+
+            public const bool dummySplittedFiles = true;//If true, after a file has been splitted the orginal file will be replaced
+                                                         //with a empty file that has the same name and extension
 
             public const bool dontModifyGitIgnore = false;//If true, splitted files paths wont be added to the .gitignore file
 
@@ -284,9 +287,10 @@ namespace zombSplit
         public static void SplitFiles()
         {
 #pragma warning disable CS0162 // Unreachable code detected
-            if (SplitConfig.deleteSplittedFiles == true || SplitConfig.alwaysMergeBeforeSplit == true)
+            if (SplitConfig.deleteSplittedFiles == true || SplitConfig.dummySplittedFiles == true
+                || SplitConfig.alwaysMergeBeforeSplit == true)
                 MergeFiles();//Running DoSplitFiles twice in a row without running MergeFiles inbetween will
-                             //permanently delete splitted files, this to prevent that!! (Only if deleteSplittedFiles)
+                             //permanently delete splitted files, this to prevent that!! (Only if delete/dummySplittedFiles)
 #pragma warning restore CS0162 // Unreachable code detected
 
             GetSplitSaveFile().DoSplitFiles();
@@ -543,6 +547,12 @@ namespace zombSplit
                         {
 #pragma warning disable CS0162 // Unreachable code detected
                             File.Delete(filePath);
+#pragma warning restore CS0162 // Unreachable code detected
+                        }
+                        else if (SplitConfig.dummySplittedFiles == true)
+                        {
+#pragma warning disable CS0162 // Unreachable code detected
+                            File.WriteAllBytes(filePath, []);
 #pragma warning restore CS0162 // Unreachable code detected
                         }
 
