@@ -1,4 +1,4 @@
-<h1 align="center">File Splitter by David Westberg</h1>
+<h1>File Splitter</h1>
 
 ## Overview
 A fast and simple file splitter & merger, an alternative to git LFS. Splits large files into multiple smaller files, automatically adds the large files to your .gitignore and merges the splitted files back into their orginal large file.
