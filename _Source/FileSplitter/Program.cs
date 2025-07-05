@@ -5,6 +5,8 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using static System.Numerics.BitOperations;
 using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 
 //FileSplitter.SplitFiles();
 FileSplitter.MergeFiles();//Uncomment either SplitFiles or MergeFiles and build
@@ -13,36 +15,119 @@ FileSplitter.MergeFiles();//Uncomment either SplitFiles or MergeFiles and build
 namespace zombSplit
 #pragma warning restore IDE0130 // Namespace does not match folder structure
 {
-    public class FileSplitter
+    [JsonSourceGenerationOptions(
+    WriteIndented = true,
+    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+    GenerationMode = JsonSourceGenerationMode.Default)]
+    [JsonSerializable(typeof(FileSplitter.SplitConfig.SplitConfigModel))]
+    public partial class SplitConfigJsonContext : JsonSerializerContext
+    {
+    }
+
+    public class FileSplitter//Fixme: replace all path combine operations with Path.Combine and similar, current method works for Windows
     {
         #region Config
-        private static class SplitConfig
+        public static class SplitConfig
         {
-            public const bool alwaysMergeBeforeSplit = false;//If true, DoMergeFiles() will be called in SplitFiles() before splitting,
-                                                             //always the case if deleteSplittedFiles is true
+            public static bool alwaysMergeBeforeSplit = false;//If true, DoMergeFiles() will be called in SplitFiles() before splitting,
+                                                             //always the case if deleteSplittedFiles or dummySplittedFiles is true
 
-            public const bool deleteSplittedFiles = false;//If true, after a file has been splitted the orginal file will be deleted
+            public static bool deleteSplittedFiles = false;//If true, after a file has been splitted the orginal file will be deleted
 
-            public const bool dummySplittedFiles = true;//If true, after a file has been splitted the orginal file will be replaced
+            public static bool dummySplittedFiles = true;//If true, after a file has been splitted the orginal file will be replaced
                                                          //with a empty file that has the same name and extension
 
-            public const bool dontModifyGitIgnore = false;//If true, splitted files paths wont be added to the .gitignore file
+            public static bool dontModifyGitIgnore = false;//If true, splitted files paths wont be added to the .gitignore file
 
-            public const bool NoMessagePausing = true;//If false, waits for key input before continueing when print message, useful to be able to actually read the messages
+            public static bool NoMessagePausing = true;//If false, waits for key input before continueing when print message, useful to be able to actually read the messages
 
-            public const bool NoErrorPausing = false;//Same as above but for errors
+            public static bool NoErrorPausing = false;//Same as above but for errors
 
             //Files that are in or in any sub folder of a folder that has any of these names will never be splitted
-            public static readonly string[] dictorariesToExclude = [".vs", "Build", ".git", "Library", "Temp", "xSplittedFiles_TEMPONLY_hf4n~"];
+            public static string[] dictorariesToExclude = [".vs", "Build", ".git", "Library", "Temp", "xSplittedFiles_TEMPONLY_hf4n~"];
 
             //Files with these extensions will never be splitted
-            public static readonly HashSet<string> fileExtensionsToExclude = [".meta", ".VC.db", ".VC.opendb"];
+            public static HashSet<string> fileExtensionsToExclude = [".meta", ".VC.db", ".VC.opendb"];
                                                                                                                        
-            public const int splitFilesLargerThanMB = 99;//If a file is larger that this it gets splitted into files that are smaller than this
+            public static int splitFilesLargerThanMB = 99;//If a file is larger that this it gets splitted into files that are smaller than this
+            public static int maxThreadCount = 4;
+            public static int maxAttempts = 16;
+            public static int newAttemptDelayMS = 200;
 
-            public const int maxThreadCount = 4;
-            public const int maxAttempts = 16;
-            public const int newAttemptDelayMS = 200;
+            public static void LoadFromFile()
+            {
+                string path = GetProjectBasePath() + "/xSplitConfig.json";
+
+                if (File.Exists(path) == false)
+                {
+                    Debug.Log("Config file not found at " + path + ", creating one with defaults");
+                    CreateDefaultConfigFile(path);
+                    return;
+                }
+
+                var loadedConfig = JsonSerializer.Deserialize(File.ReadAllText(path), SplitConfigJsonContext.Default.SplitConfigModel);
+                if (loadedConfig == null) return;
+
+                alwaysMergeBeforeSplit = loadedConfig.alwaysMergeBeforeSplit ?? alwaysMergeBeforeSplit;
+                deleteSplittedFiles = loadedConfig.deleteSplittedFiles ?? deleteSplittedFiles;
+                dummySplittedFiles = loadedConfig.dummySplittedFiles ?? dummySplittedFiles;
+                dontModifyGitIgnore = loadedConfig.dontModifyGitIgnore ?? dontModifyGitIgnore;
+                NoMessagePausing = loadedConfig.NoMessagePausing ?? NoMessagePausing;
+                NoErrorPausing = loadedConfig.NoErrorPausing ?? NoErrorPausing;
+                splitFilesLargerThanMB = loadedConfig.splitFilesLargerThanMB ?? splitFilesLargerThanMB;
+                maxThreadCount = loadedConfig.maxThreadCount ?? maxThreadCount;
+                maxAttempts = loadedConfig.maxAttempts ?? maxAttempts;
+                newAttemptDelayMS = loadedConfig.newAttemptDelayMS ?? newAttemptDelayMS;
+
+                if (loadedConfig.dictorariesToExclude != null)
+                    dictorariesToExclude = loadedConfig.dictorariesToExclude;
+
+                if (loadedConfig.fileExtensionsToExclude != null)
+                    fileExtensionsToExclude = new HashSet<string>(loadedConfig.fileExtensionsToExclude);
+            }
+
+            private static readonly JsonSerializerOptions serializeOptions = new()
+            {
+                WriteIndented = true,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+            };
+
+            private static void CreateDefaultConfigFile(string path)
+            {
+                SplitConfigModel config = new()
+                {
+                    alwaysMergeBeforeSplit = alwaysMergeBeforeSplit,
+                    deleteSplittedFiles = deleteSplittedFiles,
+                    dummySplittedFiles = dummySplittedFiles,
+                    dontModifyGitIgnore = dontModifyGitIgnore,
+                    NoMessagePausing = NoMessagePausing,
+                    NoErrorPausing = NoErrorPausing,
+                    splitFilesLargerThanMB = splitFilesLargerThanMB,
+                    maxThreadCount = maxThreadCount,
+                    maxAttempts = maxAttempts,
+                    newAttemptDelayMS = newAttemptDelayMS,
+                    dictorariesToExclude = dictorariesToExclude,
+                    fileExtensionsToExclude = fileExtensionsToExclude.ToArray()
+                };
+
+                File.WriteAllText(path, JsonSerializer.Serialize(config, SplitConfigJsonContext.Default.SplitConfigModel));
+            }
+
+            public class SplitConfigModel
+            {
+                public bool? alwaysMergeBeforeSplit { get; set; }
+                public bool? deleteSplittedFiles { get; set; }
+                public bool? dummySplittedFiles { get; set; }
+                public bool? dontModifyGitIgnore { get; set; }
+                public bool? NoMessagePausing { get; set; }
+                public bool? NoErrorPausing { get; set; }
+                public int? splitFilesLargerThanMB { get; set; }
+                public int? maxThreadCount { get; set; }
+                public int? maxAttempts { get; set; }
+                public int? newAttemptDelayMS { get; set; }
+                public string[]? dictorariesToExclude { get; set; }
+                public string[]? fileExtensionsToExclude { get; set; }
+            }
         }
         #endregion Config
 
@@ -209,6 +294,9 @@ namespace zombSplit
             string splitFolderPath = RestoreGitIgnore();
             string appPath = GetProjectBasePath();
             if (splitFolderPath == null) return;
+
+            //Load config
+            SplitConfig.LoadFromFile();
 
             //Merge the files
             ParallelOptions options = new() { MaxDegreeOfParallelism = SplitConfig.maxThreadCount };
@@ -417,6 +505,9 @@ namespace zombSplit
 
         private void DoSplitFiles()
         {
+            //Load config
+            SplitConfig.LoadFromFile();
+
             string fullIgnorePath = string.Empty;
             string splitFolderPath = string.Empty;
 
